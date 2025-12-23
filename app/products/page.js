@@ -42,7 +42,7 @@ export default function ProductsPage() {
 
   // Fetch products with smart caching
   const { data: productsData, loading, error, mutate, revalidate } = useProducts(queryParams);
-  const products = productsData?.data || [];
+  const products = useMemo(() => productsData?.data || [], [productsData?.data]);
   const pagination = productsData?.pagination || { page: 1, limit: 12, total: 0, pages: 0 };
 
   // Fetch categories with long caching

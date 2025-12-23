@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Modal from './Modal';
 import AlertModal from './AlertModal';
 import ProductBundleModal from './ProductBundleModal';
@@ -46,6 +46,20 @@ const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) =>
   const [bundleModal, setBundleModal] = useState({ isOpen: false, bundle: null });
   const [deleteBundleModal, setDeleteBundleModal] = useState({ isOpen: false, bundleId: null });
   const [loadingBundles, setLoadingBundles] = useState(false);
+
+  const loadBundles = useCallback(async (productId) => {
+    if (!productId) return;
+    setLoadingBundles(true);
+    try {
+      const data = await getProductBundles(productId);
+      setBundles(data || []);
+    } catch (error) {
+      console.error('Failed to load bundles:', error);
+      toast.error('Failed to load bundle offers');
+    } finally {
+      setLoadingBundles(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     if (product && isOpen) {
@@ -93,21 +107,7 @@ const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) =>
       setDeletedImages([]);
       setBundles([]);
     }
-  }, [product, isOpen]);
-
-  const loadBundles = async (productId) => {
-    if (!productId) return;
-    setLoadingBundles(true);
-    try {
-      const data = await getProductBundles(productId);
-      setBundles(data || []);
-    } catch (error) {
-      console.error('Failed to load bundles:', error);
-      toast.error('Failed to load bundle offers');
-    } finally {
-      setLoadingBundles(false);
-    }
-  };
+  }, [product, isOpen, loadBundles]);
 
   const handleBundleSubmit = async (bundleData) => {
     if (!product?._id) {
@@ -669,7 +669,7 @@ const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) =>
               <div className="text-center py-4 text-gray-500">Loading bundles...</div>
             ) : bundles.length === 0 ? (
               <div className="text-center py-4 bg-gray-50 rounded-lg text-gray-500 text-sm">
-                No bundle offers yet. Click "Add Bundle" to create one.
+                No bundle offers yet. Click &quot;Add Bundle&quot; to create one.
               </div>
             ) : (
               <div className="space-y-2">
