@@ -623,6 +623,9 @@ const OrderFormModal = ({ isOpen, onClose, onSubmit, order }) => {
                 <span className="text-xs text-gray-500">DZD</span>
               </div>
             </div>
+            <div className="text-xs text-gray-500 italic">
+              * Bundle discounts will be applied automatically if applicable
+            </div>
             <div className="flex justify-between text-lg font-bold border-t pt-2">
               <span>Total:</span>
               <span className="text-primary-600">{calculateTotal().toLocaleString()} DZD</span>

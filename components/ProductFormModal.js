@@ -3,9 +3,12 @@
 import { useState, useEffect } from 'react';
 import Modal from './Modal';
 import AlertModal from './AlertModal';
+import ProductBundleModal from './ProductBundleModal';
+import ConfirmModal from './ConfirmModal';
 import { useToast } from '@/hooks/useToast';
-import { PhotoIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { PhotoIcon, XMarkIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
+import { getProductBundles, createProductBundle, updateProductBundle, deleteProductBundle } from '@/lib/api/productBundlesApi';
 
 const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) => {
   const [formData, setFormData] = useState({
@@ -39,6 +42,10 @@ const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) =>
   const [tagInput, setTagInput] = useState('');
   const [detailKey, setDetailKey] = useState('');
   const [detailValue, setDetailValue] = useState('');
+  const [bundles, setBundles] = useState([]);
+  const [bundleModal, setBundleModal] = useState({ isOpen: false, bundle: null });
+  const [deleteBundleModal, setDeleteBundleModal] = useState({ isOpen: false, bundleId: null });
+  const [loadingBundles, setLoadingBundles] = useState(false);
 
   useEffect(() => {
     if (product && isOpen) {
@@ -62,6 +69,7 @@ const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) =>
       setImages(product.images || []);
       setNewImageFiles([]);
       setDeletedImages([]);
+      loadBundles(product._id);
     } else if (!product && isOpen) {
       setFormData({
         name: '',
@@ -83,8 +91,59 @@ const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) =>
       setImages([]);
       setNewImageFiles([]);
       setDeletedImages([]);
+      setBundles([]);
     }
   }, [product, isOpen]);
+
+  const loadBundles = async (productId) => {
+    if (!productId) return;
+    setLoadingBundles(true);
+    try {
+      const data = await getProductBundles(productId);
+      setBundles(data || []);
+    } catch (error) {
+      console.error('Failed to load bundles:', error);
+      toast.error('Failed to load bundle offers');
+    } finally {
+      setLoadingBundles(false);
+    }
+  };
+
+  const handleBundleSubmit = async (bundleData) => {
+    if (!product?._id) {
+      toast.error('Please save the product first before adding bundles');
+      return;
+    }
+
+    try {
+      if (bundleModal.bundle) {
+        // Update existing bundle
+        await updateProductBundle(bundleModal.bundle._id, bundleData);
+        toast.success('Bundle updated successfully');
+      } else {
+        // Create new bundle
+        await createProductBundle(product._id, bundleData);
+        toast.success('Bundle created successfully');
+      }
+      await loadBundles(product._id);
+      setBundleModal({ isOpen: false, bundle: null });
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleDeleteBundle = async () => {
+    const { bundleId } = deleteBundleModal;
+    setDeleteBundleModal({ isOpen: false, bundleId: null });
+
+    try {
+      await deleteProductBundle(bundleId);
+      toast.success('Bundle deleted successfully');
+      await loadBundles(product._id);
+    } catch (error) {
+      toast.error('Failed to delete bundle');
+    }
+  };
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files || []);
@@ -589,6 +648,90 @@ const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) =>
           </div>
         </div>
 
+        {/* Bundle Offers - Only show if product exists (has _id) */}
+        {product?._id && (
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Bundle Offers
+              </label>
+              <button
+                type="button"
+                onClick={() => setBundleModal({ isOpen: true, bundle: null })}
+                className="px-3 py-1 bg-primary-500 text-white rounded-lg hover:bg-primary-600 text-sm flex items-center gap-1"
+              >
+                <PlusIcon className="w-4 h-4" />
+                Add Bundle
+              </button>
+            </div>
+            
+            {loadingBundles ? (
+              <div className="text-center py-4 text-gray-500">Loading bundles...</div>
+            ) : bundles.length === 0 ? (
+              <div className="text-center py-4 bg-gray-50 rounded-lg text-gray-500 text-sm">
+                No bundle offers yet. Click "Add Bundle" to create one.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {bundles.map((bundle) => {
+                  const originalPrice = (product.price || 0) * bundle.quantity;
+                  const newPrice = originalPrice - bundle.discount;
+                  const now = new Date();
+                  const isActive = bundle.active && 
+                    (!bundle.startDate || new Date(bundle.startDate) <= now) &&
+                    (!bundle.endDate || new Date(bundle.endDate) >= now);
+
+                  return (
+                    <div key={bundle._id} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-gray-900">
+                              Buy {bundle.quantity} - Save {bundle.discount.toLocaleString()} DZD
+                            </span>
+                            {isActive ? (
+                              <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">Active</span>
+                            ) : (
+                              <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">Inactive</span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-600 space-y-0.5">
+                            <div>Original: {originalPrice.toLocaleString()} DZD → New: {newPrice.toLocaleString()} DZD</div>
+                            {bundle.startDate && (
+                              <div>Starts: {new Date(bundle.startDate).toLocaleDateString()}</div>
+                            )}
+                            {bundle.endDate && (
+                              <div>Ends: {new Date(bundle.endDate).toLocaleDateString()}</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 ml-2">
+                          <button
+                            type="button"
+                            onClick={() => setBundleModal({ isOpen: true, bundle })}
+                            className="p-1.5 text-primary-600 hover:bg-primary-50 rounded"
+                            title="Edit bundle"
+                          >
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteBundleModal({ isOpen: true, bundleId: bundle._id })}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                            title="Delete bundle"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Submit */}
         <div className="flex gap-3 pt-4">
           <button
@@ -616,6 +759,24 @@ const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) =>
         title="Image Limit Reached"
         message={alertModal.message}
         type="warning"
+      />
+
+      <ProductBundleModal
+        isOpen={bundleModal.isOpen}
+        onClose={() => setBundleModal({ isOpen: false, bundle: null })}
+        onSubmit={handleBundleSubmit}
+        bundle={bundleModal.bundle}
+        product={product}
+      />
+
+      <ConfirmModal
+        isOpen={deleteBundleModal.isOpen}
+        onClose={() => setDeleteBundleModal({ isOpen: false, bundleId: null })}
+        onConfirm={handleDeleteBundle}
+        title="Delete Bundle Offer"
+        message="Are you sure you want to delete this bundle offer? This action cannot be undone."
+        confirmText="Delete"
+        type="danger"
       />
     </>
   );

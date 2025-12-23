@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import ProductFormModal from '@/components/ProductFormModal';
 import ConfirmModal from '@/components/ConfirmModal';
 import { useToast } from '@/hooks/useToast';
 import { useProducts, useCategories } from '@/hooks/useData';
+import { getProductBundles } from '@/lib/api/productBundlesApi';
 import Image from 'next/image';
 import {
   PlusIcon,
@@ -23,6 +24,7 @@ export default function ProductsPage() {
   const [stockFilter, setStockFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, productId: null });
+  const [productBundles, setProductBundles] = useState({});
 
   const toast = useToast();
 
@@ -46,6 +48,34 @@ export default function ProductsPage() {
   // Fetch categories with long caching
   const { data: categoriesData } = useCategories({ all: 'true' });
   const categories = categoriesData?.data || [];
+
+  // Load active bundles for products
+  useEffect(() => {
+    const loadBundles = async () => {
+      const bundlesMap = {};
+      for (const product of products) {
+        try {
+          const bundles = await getProductBundles(product._id, { active: true });
+          const now = new Date();
+          const activeBundles = bundles.filter(b => {
+            const startValid = !b.startDate || new Date(b.startDate) <= now;
+            const endValid = !b.endDate || new Date(b.endDate) >= now;
+            return startValid && endValid;
+          });
+          if (activeBundles.length > 0) {
+            bundlesMap[product._id] = activeBundles;
+          }
+        } catch (error) {
+          // Silently fail - bundles are optional
+        }
+      }
+      setProductBundles(bundlesMap);
+    };
+
+    if (products.length > 0) {
+      loadBundles();
+    }
+  }, [products]);
 
   const logActivity = async (payload) => {
     try {
@@ -324,6 +354,11 @@ export default function ProductsPage() {
                       {product.topSelling && (
                         <span className="px-2 py-1 bg-purple-400 text-purple-900 text-xs font-semibold rounded-full">
                           🔥 Top Selling
+                        </span>
+                      )}
+                      {productBundles[product._id] && productBundles[product._id].length > 0 && (
+                        <span className="px-2 py-1 bg-blue-500 text-white text-xs font-semibold rounded-full">
+                          🎁 Bundle Offers
                         </span>
                       )}
                       {!product.in_stock && (

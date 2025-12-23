@@ -5,6 +5,7 @@ import dbConnect from '@/lib/mongodb';
 import Order from '@/lib/models/Order';
 import OrderItem from '@/lib/models/OrderItem';
 import Product from '@/lib/models/Product';
+import ProductBundle from '@/lib/models/ProductBundle';
 
 export async function GET(request) {
   try {
@@ -186,13 +187,74 @@ export async function POST(request) {
       );
     }
 
-    // Calculate total
+    // Calculate subtotal
     const subtotal = items.reduce((sum, item) => {
       const price = Number(item.unitPrice || item.price || 0);
       const qty = Number(item.quantity || 0);
       return sum + (price * qty);
     }, 0);
-    const total = subtotal + Number(shippingCost || 0);
+
+    // Calculate bundle discounts
+    const now = new Date();
+    let totalBundleDiscount = 0;
+    const bundleDetails = [];
+
+    // Group items by productId and sum quantities
+    const productQuantities = {};
+    items.forEach((item) => {
+      const productId = item.productId || item.product_id;
+      if (productId) {
+        const qty = Number(item.quantity || 0);
+        productQuantities[productId] = (productQuantities[productId] || 0) + qty;
+      }
+    });
+
+    // For each product, find the best matching bundle
+    for (const [productId, totalQuantity] of Object.entries(productQuantities)) {
+      // Query active bundles for this product
+      const bundleQuery = {
+        productId: productId,
+        active: true,
+        quantity: { $lte: totalQuantity },
+      };
+
+      // Add date filters if dates exist
+      const dateFilters = [];
+      dateFilters.push({
+        $or: [
+          { startDate: null },
+          { startDate: { $lte: now } },
+        ],
+      });
+      dateFilters.push({
+        $or: [
+          { endDate: null },
+          { endDate: { $gte: now } },
+        ],
+      });
+
+      const bundles = await ProductBundle.find({
+        ...bundleQuery,
+        $and: dateFilters,
+      })
+        .sort({ quantity: -1 }) // Sort by quantity descending to get best match
+        .lean();
+
+      // Apply best matching bundle (highest quantity <= order quantity)
+      if (bundles.length > 0) {
+        const bestBundle = bundles[0];
+        totalBundleDiscount += bestBundle.discount;
+        bundleDetails.push({
+          productId,
+          bundleId: bestBundle._id,
+          quantity: bestBundle.quantity,
+          discount: bestBundle.discount,
+        });
+      }
+    }
+
+    // Calculate total: subtotal - bundleDiscount + shippingCost
+    const total = subtotal - totalBundleDiscount + Number(shippingCost || 0);
 
     // Create order
     const order = await Order.create({
@@ -206,6 +268,8 @@ export async function POST(request) {
       deliveryType: deliveryType || 'to_home',
       subtotal,
       shippingCost: Number(shippingCost || 0),
+      bundleDiscount: totalBundleDiscount,
+      bundleDetails,
       total,
       paymentMethod: paymentMethod || 'Cash on Delivery',
       status: 'pending',

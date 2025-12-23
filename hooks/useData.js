@@ -221,6 +221,37 @@ export function useCommunes(wilayaId = null) {
 }
 
 /**
+ * Hook for product bundles (with caching)
+ */
+export function useProductBundles(productId, options = {}) {
+  if (!productId) {
+    return { data: [], error: null, loading: false, mutate: () => {}, revalidate: () => {} };
+  }
+
+  const key = `product-bundles-${productId}-${JSON.stringify(options)}`;
+  
+  return useData(
+    key,
+    async () => {
+      const params = new URLSearchParams();
+      if (options.active !== undefined) {
+        params.append('active', options.active.toString());
+      }
+      const url = `/api/products/${productId}/bundles${params.toString() ? `?${params}` : ''}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Failed to fetch bundles');
+      return data.data;
+    },
+    {
+      dedupingInterval: 30000, // 30 seconds
+      retryCount: 1,
+    }
+  );
+}
+
+/**
  * Hook for prefetching all dashboard data
  */
 export function usePrefetchDashboard() {
