@@ -4,13 +4,7 @@ import { authOptions } from '@/lib/auth';
 import cloudinary from '@/lib/cloudinary';
 
 // Configure route to accept larger payloads (10MB for base64 encoded images)
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-};
+export const maxDuration = 30;
 
 export async function POST(request) {
   try {
