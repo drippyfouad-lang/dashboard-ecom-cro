@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import Modal from './Modal';
-import AlertModal from './AlertModal';
-import ProductBundleModal from './ProductBundleModal';
-import ConfirmModal from './ConfirmModal';
 import { useToast } from '@/hooks/useToast';
-import { PhotoIcon, XMarkIcon, PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { createProductBundle, deleteProductBundle, getProductBundles, updateProductBundle } from '@/lib/api/productBundlesApi';
+import { PencilIcon, PhotoIcon, PlusIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
-import { getProductBundles, createProductBundle, updateProductBundle, deleteProductBundle } from '@/lib/api/productBundlesApi';
+import { useCallback, useEffect, useState } from 'react';
+import AlertModal from './AlertModal';
+import ConfirmModal from './ConfirmModal';
+import Modal from './Modal';
+import ProductBundleModal from './ProductBundleModal';
 
 const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) => {
   const [formData, setFormData] = useState({
@@ -200,22 +200,7 @@ const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) =>
     setFormData({ ...formData, tags: formData.tags.filter((t) => t !== tag) });
   };
 
-  const addDetail = () => {
-    if (detailKey.trim() && detailValue.trim()) {
-      setFormData({
-        ...formData,
-        details: { ...formData.details, [detailKey.trim()]: detailValue.trim() },
-      });
-      setDetailKey('');
-      setDetailValue('');
-    }
-  };
 
-  const removeDetail = (key) => {
-    const newDetails = { ...formData.details };
-    delete newDetails[key];
-    setFormData({ ...formData, details: newDetails });
-  };
 
   const uploadImages = async () => {
     if (newImageFiles.length === 0) return [];
@@ -676,8 +661,22 @@ const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) =>
                 {bundles.map((bundle) => {
                   // Use compareAtPrice (original price) if available, otherwise use price
                   const originalUnitPrice = (product?.compareAtPrice || product?.price || 0);
+                  
+                  // Calculate product discount per unit (if compareAtPrice exists)
+                  const productDiscountPerUnit = product?.compareAtPrice ? (product.compareAtPrice - product.price) : 0;
+                  const totalProductDiscount = productDiscountPerUnit * bundle.quantity;
+                  
+                  // Total savings = product discount + bundle discount
+                  const totalSavings = totalProductDiscount + bundle.discount;
+                  
+                  // Original total price
                   const originalPrice = originalUnitPrice * bundle.quantity;
-                  const newPrice = originalPrice - bundle.discount;
+                  
+                  // Final price after both discounts
+                  const newPrice = originalPrice - totalSavings;
+                  
+                  // Combined discount percentage
+                  const discountPercent = originalPrice > 0 ? Math.round((totalSavings / originalPrice) * 100) : 0;
                   const now = new Date();
                   const isActive = bundle.active && 
                     (!bundle.startDate || new Date(bundle.startDate) <= now) &&
@@ -689,7 +688,7 @@ const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) =>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-semibold text-gray-900">
-                              Buy {bundle.quantity} - Save {bundle.discount.toLocaleString()} DZD
+                              Buy {bundle.quantity} - Save {totalSavings.toLocaleString()} DZD ({discountPercent}%)
                             </span>
                             {isActive ? (
                               <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">Active</span>
@@ -698,7 +697,12 @@ const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) =>
                             )}
                           </div>
                           <div className="text-sm text-gray-600 space-y-0.5">
-                            <div>Original: {originalPrice.toLocaleString()} DZD → New: {newPrice.toLocaleString()} DZD</div>
+                            <div>Original: {originalPrice.toLocaleString()} DZD → Final: {newPrice.toLocaleString()} DZD</div>
+                            {totalProductDiscount > 0 && (
+                              <div className="text-xs text-gray-500">
+                                (Product: -{totalProductDiscount.toLocaleString()} DZD + Bundle: -{bundle.discount.toLocaleString()} DZD)
+                              </div>
+                            )}
                             {bundle.startDate && (
                               <div>Starts: {new Date(bundle.startDate).toLocaleDateString()}</div>
                             )}
