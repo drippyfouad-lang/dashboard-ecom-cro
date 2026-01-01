@@ -81,10 +81,12 @@ const ProductBundleModal = ({ isOpen, onClose, onSubmit, bundle, product }) => {
   };
 
   // Calculate display values
+  // Use compareAtPrice (original price) if available, otherwise use price
+  const originalUnitPrice = product?.compareAtPrice || product?.price || 0;
   const productPrice = product?.price || 0;
   const quantity = parseInt(formData.quantity) || 0;
   const discount = parseFloat(formData.discount) || 0;
-  const originalPrice = productPrice * quantity;
+  const originalPrice = originalUnitPrice * quantity;
   const newPrice = Math.max(0, originalPrice - discount);
 
   return (
@@ -190,7 +192,12 @@ const ProductBundleModal = ({ isOpen, onClose, onSubmit, bundle, product }) => {
               <span className="text-primary-600">{newPrice.toLocaleString()} DZD</span>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Formula: ({productPrice.toLocaleString()} × {quantity}) - {discount.toLocaleString()} = {newPrice.toLocaleString()} DZD
+              Formula: ({originalUnitPrice.toLocaleString()} × {quantity}) - {discount.toLocaleString()} = {newPrice.toLocaleString()} DZD
+              {product?.compareAtPrice && (
+                <span className="block mt-1 text-gray-400">
+                  (Using original price: {product.compareAtPrice.toLocaleString()} DZD per unit)
+                </span>
+              )}
             </p>
           </div>
         )}
@@ -219,4 +226,5 @@ const ProductBundleModal = ({ isOpen, onClose, onSubmit, bundle, product }) => {
 };
 
 export default ProductBundleModal;
+
 

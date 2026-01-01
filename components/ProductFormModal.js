@@ -674,7 +674,9 @@ const ProductFormModal = ({ isOpen, onClose, onSubmit, product, categories }) =>
             ) : (
               <div className="space-y-2">
                 {bundles.map((bundle) => {
-                  const originalPrice = (product.price || 0) * bundle.quantity;
+                  // Use compareAtPrice (original price) if available, otherwise use price
+                  const originalUnitPrice = (product?.compareAtPrice || product?.price || 0);
+                  const originalPrice = originalUnitPrice * bundle.quantity;
                   const newPrice = originalPrice - bundle.discount;
                   const now = new Date();
                   const isActive = bundle.active && 
