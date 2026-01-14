@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import connectDB from '@/lib/mongodb';
-import Wilaya from '@/lib/models/Wilaya';
 import Commune from '@/lib/models/Commune';
+import Wilaya from '@/lib/models/Wilaya';
+import connectDB from '@/lib/mongodb';
+import { getServerSession } from 'next-auth';
+import { NextResponse } from 'next/server';
 
 /**
  * GET /api/wilayas/[id]
@@ -13,7 +13,7 @@ export async function GET(request, { params }) {
   try {
     await connectDB();
 
-    const { id } = params;
+    const { id } = await params;
     const wilaya = await Wilaya.findById(id).lean();
 
     if (!wilaya) {
@@ -60,7 +60,7 @@ export async function PUT(request, { params }) {
 
     await connectDB();
 
-    const { id } = params;
+    const { id } = await params;
     const data = await request.json();
 
     const wilaya = await Wilaya.findByIdAndUpdate(
@@ -105,16 +105,16 @@ export async function DELETE(request, { params }) {
 
     await connectDB();
 
-    const { id } = params;
+    const { id } = await params;
 
     // Check if there are any communes using this wilaya
     const communeCount = await Commune.countDocuments({ wilaya_id: id });
-    
+
     if (communeCount > 0) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: `Cannot delete wilaya with ${communeCount} communes. Delete communes first.` 
+        {
+          success: false,
+          error: `Cannot delete wilaya with ${communeCount} communes. Delete communes first.`
         },
         { status: 400 }
       );

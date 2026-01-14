@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import connectDB from '@/lib/mongodb';
 import Product from '@/lib/models/Product';
+import connectDB from '@/lib/mongodb';
+import { getServerSession } from 'next-auth';
+import { NextResponse } from 'next/server';
 
 // GET /api/products - List products with pagination and filters
 export async function GET(request) {
@@ -24,15 +24,15 @@ export async function GET(request) {
 
     // Build query
     const query = {};
-    
+
     if (search) {
       query.name = { $regex: search, $options: 'i' };
     }
-    
+
     if (category && category !== 'All' && category !== '') {
       query.category_id = category;
     }
-    
+
     // Handle both 'stock' and 'in_stock' parameters
     const stockParam = stock || inStock;
     if (stockParam && stockParam !== 'all' && stockParam !== 'All') {
@@ -85,7 +85,7 @@ export async function POST(request) {
 
     const body = await request.json();
     console.log('📦 Product creation request body:', JSON.stringify(body, null, 2));
-    
+
     const {
       name,
       category_id,
@@ -147,11 +147,11 @@ export async function POST(request) {
       variants: (variants && variants.length > 0) ? variants : [], // Ensure empty array if no variants
       salesCount: 0,
     };
-    
+
     console.log('📝 Product data to create:', JSON.stringify(productData, null, 2));
-    
+
     const product = await Product.create(productData);
-    
+
     console.log('✅ Product created successfully:', product._id);
 
     return NextResponse.json({

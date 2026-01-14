@@ -1,10 +1,9 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import dbConnect from '@/lib/mongodb';
 import Order from '@/lib/models/Order';
 import OrderItem from '@/lib/models/OrderItem';
-import Product from '@/lib/models/Product';
+import dbConnect from '@/lib/mongodb';
+import { getServerSession } from 'next-auth';
+import { NextResponse } from 'next/server';
 
 export async function GET(request, { params }) {
   try {
@@ -15,7 +14,7 @@ export async function GET(request, { params }) {
 
     await dbConnect();
 
-    const { id } = params;
+    const { id } = await params;
 
     // Get order with populated references
     const order = await Order.findById(id)
@@ -58,8 +57,8 @@ export async function GET(request, { params }) {
     });
   } catch (error) {
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: error.message || 'Failed to fetch order',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       },
@@ -77,7 +76,7 @@ export async function PUT(request, { params }) {
 
     await dbConnect();
 
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
 
     const {
@@ -217,8 +216,8 @@ export async function PUT(request, { params }) {
     });
   } catch (error) {
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         error: error.message || 'Failed to update order',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       },
@@ -236,7 +235,7 @@ export async function DELETE(request, { params }) {
 
     await dbConnect();
 
-    const { id } = params;
+    const { id } = await params;
 
     // Check if order exists
     const order = await Order.findById(id);
@@ -269,8 +268,8 @@ export async function DELETE(request, { params }) {
     });
   } catch (error) {
     return NextResponse.json(
-      { 
-        success: false, 
+      {
+        success: false,
         deleted: false,
         error: error.message || 'Failed to delete order',
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
